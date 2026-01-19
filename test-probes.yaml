@@ -1,0 +1,98 @@
+# Test pods for Resource and Probe analyzers
+# Apply with: kubectl apply -f test-probes.yaml
+
+---
+# 1. Pod with no resource limits (BestEffort QoS)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-limits-pod
+  namespace: default
+  labels:
+    app: test-probes
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+
+---
+# 2. Pod with aggressive liveness probe (will fail)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: failing-probe-pod
+  namespace: default
+  labels:
+    app: test-probes
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    livenessProbe:
+      httpGet:
+        path: /nonexistent
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 3
+      failureThreshold: 2
+    readinessProbe:
+      httpGet:
+        path: /nonexistent
+        port: 80
+      initialDelaySeconds: 2
+      periodSeconds: 2
+
+---
+# 3. Pod with very low resource limits
+apiVersion: v1
+kind: Pod
+metadata:
+  name: low-resources-pod
+  namespace: default
+  labels:
+    app: test-probes
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    resources:
+      requests:
+        memory: "8Mi"
+        cpu: "5m"
+      limits:
+        memory: "16Mi"
+        cpu: "10m"
+
+---
+# 4. Pod with good probes (for comparison)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-probes-pod
+  namespace: default
+  labels:
+    app: test-probes
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "100m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5

@@ -1,0 +1,133 @@
+# Test pods for pod-doctor
+# Apply with: kubectl apply -f test-pods.yaml
+# Delete with: kubectl delete -f test-pods.yaml
+
+---
+# 1. Healthy pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: healthy-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: nginx
+    image: nginx:alpine
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "128Mi"
+        cpu: "100m"
+
+---
+# 2. CrashLoopBackOff - exits immediately
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crash-loop-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: crasher
+    image: busybox
+    command: ["sh", "-c", "echo 'Starting...'; exit 1"]
+    resources:
+      limits:
+        memory: "64Mi"
+
+---
+# 3. ImagePullBackOff - non-existent image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: image-pull-error
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: bad-image
+    image: this-image-does-not-exist:v999
+
+---
+# 4. OOMKilled - exceeds memory limit
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: memory-hog
+    image: polinux/stress
+    command: ["stress", "--vm", "1", "--vm-bytes", "256M", "--vm-hang", "1"]
+    resources:
+      limits:
+        memory: "64Mi"
+
+---
+# 5. Pending - impossible resource request
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pending-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: greedy
+    image: nginx:alpine
+    resources:
+      requests:
+        memory: "999Gi"
+        cpu: "999"
+
+---
+# 6. Config error - missing configmap
+apiVersion: v1
+kind: Pod
+metadata:
+  name: config-error-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    envFrom:
+    - configMapRef:
+        name: nonexistent-config
+
+---
+# 7. Pod with connection errors in logs
+apiVersion: v1
+kind: Pod
+metadata:
+  name: connection-error-pod
+  namespace: default
+  labels:
+    app: test
+spec:
+  containers:
+  - name: connector
+    image: busybox
+    command:
+    - sh
+    - -c
+    - |
+      while true; do
+        echo "Trying to connect..."
+        echo "Error: connection refused to database:5432"
+        echo "ECONNREFUSED: cannot reach service"
+        sleep 5
+      done
